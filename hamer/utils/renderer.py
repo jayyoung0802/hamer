@@ -203,7 +203,7 @@ class Renderer:
             alphaMode='OPAQUE',
             baseColorFactor=(*mesh_base_color, 1.0))
 
-        camera_translation[0] *= -1.
+        camera_translation[0] *= -1. # left-hand to right-hand
 
         mesh = trimesh.Trimesh(vertices.copy(), self.faces.copy())
         if side_view:
@@ -211,16 +211,15 @@ class Renderer:
                 np.radians(rot_angle), [0, 1, 0])
             mesh.apply_transform(rot)
         rot = trimesh.transformations.rotation_matrix(
-            np.radians(180), [1, 0, 0])
+            np.radians(180), [1, 0, 0]) # left-hand to right-hand
         mesh.apply_transform(rot)
-        mesh = pyrender.Mesh.from_trimesh(mesh, material=material)
+        mesh = pyrender.Mesh.from_trimesh(mesh, material=material) # pyrender default right-hand
 
         scene = pyrender.Scene(bg_color=[*scene_bg_color, 0.0],
                                ambient_light=(0.3, 0.3, 0.3))
         scene.add(mesh, 'mesh')
-
         camera_pose = np.eye(4)
-        camera_pose[:3, 3] = camera_translation
+        camera_pose[:3, 3] = camera_translation  # mesh的中心在scene的[0,0,0], 相机在camera_translation的位置
         camera_center = [image.shape[1] / 2., image.shape[0] / 2.]
         camera = pyrender.IntrinsicsCamera(fx=self.focal_length, fy=self.focal_length,
                                            cx=camera_center[0], cy=camera_center[1], zfar=1e12)

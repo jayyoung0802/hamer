@@ -69,10 +69,14 @@ def main():
 
     # Make output directory if it does not exist
     os.makedirs(args.out_folder, exist_ok=True)
+    os.makedirs('hand_mask', exist_ok=True)
+    os.makedirs('hamer_global_orient', exist_ok=True)
+    os.makedirs('hamer_wrist_position', exist_ok=True)
+    os.makedirs('hamer_cam_t', exist_ok=True)
 
     # Get all demo images ends with .jpg or .png
     img_paths = [img for end in args.file_type for img in Path(args.img_folder).glob(end)]
-
+    print(model_cfg.EXTRA.FOCAL_LENGTH / model_cfg.MODEL.IMAGE_SIZE * 848)
     # Iterate over all images in folder
     for img_path in img_paths:
         img_cv2 = cv2.imread(str(img_path))
@@ -142,6 +146,9 @@ def main():
             multiplier = (2*batch['right']-1)
             scaled_focal_length = model_cfg.EXTRA.FOCAL_LENGTH / model_cfg.MODEL.IMAGE_SIZE * img_size.max()
             pred_cam_t_full = cam_crop_to_full(pred_cam, box_center, box_size, img_size, scaled_focal_length).detach().cpu().numpy()
+            global_orient = out["pred_mano_params"]["global_orient"][0][0].cpu().detach().numpy()
+            wrist_position = out["pred_keypoints_3d"][0][0].cpu().detach().numpy()
+            wrist_position = np.add(wrist_position, pred_cam_t_full[0])
 
             # Render the result
             batch_size = batch['img'].shape[0]
@@ -203,6 +210,13 @@ def main():
             input_img_overlay = input_img[:,:,:3] * (1-cam_view[:,:,3:]) + cam_view[:,:,:3] * cam_view[:,:,3:]
 
             cv2.imwrite(os.path.join(args.out_folder, f'{img_fn}_all.jpg'), 255*input_img_overlay[:, :, ::-1])
+            hand_mask = np.ones((cam_view.shape[0], cam_view.shape[1], 3), dtype=np.uint8) * 255
+            hand_mask[cam_view[:,:,3]>0] = 0
+            cv2.imwrite(os.path.join('hand_mask', f'{img_fn}.png'), hand_mask)
+            # np.save(os.path.join('hamer_global_orient', f'{img_fn}'), out['pred_mano_params'])
+            np.save(os.path.join('hamer_global_orient', f'{img_fn}'), global_orient)
+            np.save(os.path.join('hamer_cam_t', f'{img_fn}'), all_cam_t[0])
+            np.save(os.path.join('hamer_wrist_position', f'{img_fn}'), wrist_position)
 
 if __name__ == '__main__':
     main()
